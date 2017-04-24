@@ -90,81 +90,31 @@ open class HttpController: NSObject {
     }
     
     public func doRequestPOSTWithHttp (parameter: NSDictionary, domain: String, identify: String) {
-//        var request = URLRequest(url: URL(string: "http://139.59.109.83:9001/api/validateAccount?email=quantq777@gmail.com")!)
-//        request.httpMethod = "POST"
-//        request.addValue("\(getDeviceId())", forHTTPHeaderField: "device-id")
-//        request.addValue("vn.giaohanggiare.customer", forHTTPHeaderField: "package-name")
-//        request.addValue("user", forHTTPHeaderField: "app-type")
-//        
-//        let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 9_3 like Mac OS X) AppleWebKit/601.1.46 (KHTML, like Gecko) Version/9.0 Mobile/13E188a Safari/601.1"
-//        
-//        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-//        request.addValue("application/json", forHTTPHeaderField: "Accept")
-//        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-//        
-//        let postString = ""
-//        request.httpBody = postString.data(using: .utf8)
-//        let task = URLSession.shared.dataTask(with: request) { data, response, error in
-//            guard let data = data, error == nil else {                                                 // check for fundamental networking error
-//                print("error=\(String(describing: error))")
-//                return
-//            }
-//            
-//            if let httpStatus = response as? HTTPURLResponse, httpStatus.statusCode != 200 {           // check for http errors
-//                print("statusCode should be 200, but is \(httpStatus.statusCode)")
-//                print("response = \(String(describing: response))")
-//            }
-//            
-//            let responseString = String(data: data, encoding: .utf8)
-//            print("responseString = \(String(describing: responseString))")
-//        }
-//        task.resume()
-        
         let urlString: String = baseURL.appending(domain)
         let bodyString = parameter.dictionaryToString()
+        
+        makeLogRequest(domain: domain, param: bodyString)
         let request = RequestCustom(urlString: urlString, deviceId: getDeviceId(), method: .POST, body: bodyString) { (response) in
-            if let response = response {
-                self.multicastDelegate.invoke({$0.didDoGETRequestCompleted(response: response, errorMsg: nil, identify: identify)})
+            guard let response = response else {
+                self.multicastDelegate.invoke({$0.didDoGETRequestCompleted(response: nil, errorMsg: nil, identify: identify)})
+                return
             }
+            self.makeLogResponse(response: response)
+            self.multicastDelegate.invoke({$0.didDoGETRequestCompleted(response: response, errorMsg: nil, identify: identify)})
         }
         request.makeCompleteRequest()
     }
     
     public func doRequestGETWithHttp (parameter: NSDictionary, domain: String, identify: String) {
-//        var request = URLRequest(url: URL(string: "http://139.59.109.83:9001/api/validateAccount?email=quantq777@gmail.com")!)
-//        request.httpMethod = "GET"//"POST"
-//        request.addValue("\(getDeviceId())", forHTTPHeaderField: "device-id")
-//        request.addValue("vn.giaohanggiare.customer", forHTTPHeaderField: "package-name")
-//        request.addValue("user", forHTTPHeaderField: "app-type")
-//        
-//        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-//        request.addValue("application/json", forHTTPHeaderField: "Accept")
-//        
-//        let postString = ""
-//        request.httpBody = postString.data(using: .utf8)
-//        let task = URLSession.shared.dataTask(with: request) { data, response, error in
-//            guard let data = data, error == nil else {                                                 // check for fundamental networking error
-//                print("error=\(String(describing: error))")
-//                return
-//            }
-//            
-//            if let httpStatus = response as? HTTPURLResponse, httpStatus.statusCode != 200 {           // check for http errors
-//                print("statusCode should be 200, but is \(httpStatus.statusCode)")
-//                print("response = \(String(describing: response))")
-//            }
-//            
-//            let responseString = String(data: data, encoding: .utf8)
-//            print("responseString = \(String(describing: responseString))")
-//            self.multicastDelegate.invoke({$0.didDoGETRequestCompleted(response: responseString, errorMsg: nil)})
-//        }
-//        task.resume()
-        
-        
         let urlString: String = baseURL.appending(domain)
         let request = RequestCustom(urlString: urlString, deviceId: getDeviceId(), method: .GET, body: "") { (response) in
-            if let response = response {
-                self.multicastDelegate.invoke({$0.didDoGETRequestCompleted(response: response, errorMsg: nil, identify: identify)})
+            
+            guard let response = response else {
+                self.multicastDelegate.invoke({$0.didDoGETRequestCompleted(response: nil, errorMsg: nil, identify: identify)})
+                return
             }
+            
+            self.multicastDelegate.invoke({$0.didDoGETRequestCompleted(response: response, errorMsg: nil, identify: identify)})
         }
         request.makeCompleteRequest()
         
@@ -174,18 +124,30 @@ open class HttpController: NSObject {
     private func getDeviceId () -> String {
         return UIDevice.current.identifierForVendor!.uuidString
     }
+    
+    private func makeLogRequest (domain: String, param: String) {
+        print("---------------------------")
+        print("[api: \(domain)]-")
+        print("[parameters:\(param)]")
+        print("---------------------------")
+    }
+    
+    private func makeLogResponse (response: String) {
+        print("---------------------------")
+        print("[Response: \n\(response)]")
+        print("---------------------------")
+    }
 }
 
 extension NSDictionary {
     func dictionaryToString () -> String {
-//        let data = NSJSONSerialization.dataWithJSONObject(self, options: NSJSONWritingOptions.PrettyPrinted, error: &error)
-        let data = JSONSerialization.data(withJSONObject: self, options: JSONSerialization.WritingOptions)
-        if let data = data {
-            let json = NSString(data: data, encoding: NSUTF8StringEncoding)
-            if let json = json {
-                print(json)
-            }
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: self, options: .prettyPrinted)
+            return String(data: jsonData, encoding: .utf8)!
+        } catch {
+            print(error.localizedDescription)
         }
+        return ""
     }
 }
 
@@ -197,6 +159,8 @@ enum HttpMethod:String {
 class RequestCustom: NSObject {
     let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 9_3 like Mac OS X) AppleWebKit/601.1.46 (KHTML, like Gecko) Version/9.0 Mobile/13E188a Safari/601.1"
     var currentTask: URLSessionDataTask!
+    let package_name = "vn.giaohanggiare.customer"
+    let app_mode = "user"
     
     override init() {
         super.init()
@@ -206,9 +170,9 @@ class RequestCustom: NSObject {
         super.init()
         var request = URLRequest(url: URL(string: urlString)!)
         request.httpMethod = method.rawValue//"POST"
-        request.addValue("\(deviceId)", forHTTPHeaderField: "device-id")
-        request.addValue("vn.giaohanggiare.customer", forHTTPHeaderField: "package-name")
-        request.addValue("user", forHTTPHeaderField: "app-type")
+        request.addValue(deviceId, forHTTPHeaderField: "device-id")
+        request.addValue(package_name, forHTTPHeaderField: "package-name")
+        request.addValue(app_mode, forHTTPHeaderField: "app-type")
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
